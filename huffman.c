@@ -2,11 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <math.h>
+
 
 // structura folosita pentru a determina frecventa fiecarei litere in sir, care are pe langa campurile frecventa si litera inca 2 campuri de care ma voi folosi ca sa pastrez codificarea Huffman a literei respective si nr_biti care imi arata cati din cei 8 biti ai unsigned char-ului apartin codificarii
 typedef struct frecventa_aparitiei{
 	float probabilitate;
-	uint16_t litera;
+	unsigned char litera;
 	int cod;
 	int nr_biti;
 }frecventa_aparitiei;
@@ -20,7 +22,7 @@ typedef struct TagHuffmanNode {
 
 //structura care are pentru inceput rolul de coada, dupa care devine arborele propriu-zis
 typedef struct nod {
-	uint16_t litera; //litera nodului, va fi 256 in caz ca nu exista (am pus 256 pentru ca e cea mai apropiata valoare de 255 si nu reprezinta un caracter, daca as fi pus 0, asta ar fi insemnat ca in nodul respectiv eu am caracterul NULL cand de fapt acolo nu se afla nimic)
+	unsigned char litera; //litera nodului, va fi 0 in caz ca nu exista
 	float probabilitate; // frecventa literei in text
 	unsigned char index; // va fi 0 daca nodul e in stanga si 1 daca nodul e in dreapta
 	int cod; // codificarea Huffman a literei
@@ -73,7 +75,7 @@ void bubblesort(frecventa_aparitiei *sir, int lungime) {
 
     for(i = 0; (i < lungime) && flag; i++) {
       	flag = 0;
-      	for (j = 0; j < lungime -1 ; j++)
+      	for (j = 0; j < lungime - 1; j++)
       	{
                if (sir[j+1].probabilitate < sir[j].probabilitate)
                { 
@@ -127,7 +129,7 @@ nod* adauga_coada(nod *cap, unsigned char litera, float probabilitate) {
 }
 
 //imi adauga la inceputul cozii un nod nou
-nod* adauga_coada_inceput(nod *cap, uint16_t litera, float probabilitate) {
+nod* adauga_coada_inceput(nod *cap, unsigned char litera, float probabilitate) {
 	nod *nou = malloc(sizeof(nod));
 	nou->probabilitate = probabilitate;
 	nou->litera = litera;
@@ -139,11 +141,10 @@ nod* adauga_coada_inceput(nod *cap, uint16_t litera, float probabilitate) {
 
 //adaug un nod nou in coada, pe care il voi pozitiona in functie de frecventa adunata a primelor 2 noduri din coada
 nod * adauga_coada_crescator(nod *cap, nod *aux1, nod *aux2) {
-
 	if(cap == NULL) {
 		nod *nou = malloc(sizeof(nod));
 		nou->probabilitate = aux1->probabilitate + aux2->probabilitate;
-		nou->litera = 256;
+		nou->litera = -1;
 		nou->left = aux1;
 		nou->right = aux2;
 		nou->next = NULL;
@@ -152,35 +153,16 @@ nod * adauga_coada_crescator(nod *cap, nod *aux1, nod *aux2) {
 	}
 
 	if(cap->probabilitate == (aux1->probabilitate + aux2->probabilitate)) {
-		cap = adauga_coada_inceput(cap, 256, aux1->probabilitate + aux2->probabilitate);
+		cap = adauga_coada_inceput(cap, -1, aux1->probabilitate + aux2->probabilitate);
 		cap->left = aux1;
 		cap->right = aux2;
 		return cap;
 	}
 
-	if(cap->next == NULL) {
-		nod *nou = malloc(sizeof(nod));
-		nou->probabilitate = aux1->probabilitate + aux2->probabilitate;
-		nou->litera = 256;
-		nou->left = aux1;
-		nou->right = aux2;
-		if(cap->probabilitate < nou->probabilitate) {
-			nod *intermediar = cap;
-			nou->next = NULL;
-			cap->next = nou;
-			cap = intermediar;
-			return cap;
-		}
-		else if(cap->probabilitate > nou->probabilitate) {
-			nou->next = cap;
-			return cap;
-		}
-	}
-
 	nod *nou = malloc(sizeof(nod));
 	nod *cap_aux = cap;
 	nou->probabilitate = aux1->probabilitate + aux2->probabilitate;
-	nou->litera = 256;
+	nou->litera = -1;
 	nou->left = aux1;
 	nou->right = aux2;
 
@@ -195,6 +177,8 @@ nod * adauga_coada_crescator(nod *cap, nod *aux1, nod *aux2) {
 
 //sterge primul nod din coada
 nod * sterge_coada(nod *cap) {
+	if(cap == NULL)
+		return cap;
 	cap = cap->next;
 	return cap;
 }
@@ -214,7 +198,7 @@ void printare_coada(nod *cap) {
 
 //printeaza arborele
 void afisare_arbore(arbore *cap) {
-	printf("%d %d %d\n", cap->litera, cap->pus_in_vector, cap->index);
+	printf("%c %d %d\n", cap->litera, cap->pus_in_vector, cap->index);
 	if(cap->left != NULL) {
 		//printf("stang");
 		afisare_arbore(cap->left);
@@ -395,7 +379,20 @@ void inserare(arbore **cap, int i, unsigned char litera) {
 	   inserare(&(*cap)->right, i, litera);
 }
 
-
+// cauta o frunza, urmand drumul indicat de indice; cand o va gasi inseamna ca a gasit codificarea pentru litera respectiva si va afisa litera
+arbore *cauta_index(arbore *cap, unsigned char indice, FILE *file2) {
+	if(cap->left == NULL) {
+		//printf("%c", cap->litera);
+		fprintf(file2, "%c", cap->litera);
+		//fprintf(file2, "%d ", cap->litera);
+		return NULL;
+	}
+	//printf("%d %d\n", indice, cap->left->index);
+	if(cap->left->index == indice)
+		return cap->left;
+	else if(cap->right->index == indice)
+		return cap->right;
+}
 
 arbore *initializare_arbore(arbore *cap) {
 	cap = malloc(sizeof(arbore));
@@ -436,21 +433,6 @@ void adaugare(arbore **cap, unsigned char value, int16_t left, int16_t right) {
 	}
 }
 
-// cauta o frunza, urmand drumul indicat de indice; cand o va gasi inseamna ca a gasit codificarea pentru litera respectiva si va afisa litera
-arbore *cauta_index(arbore *cap, unsigned char indice, FILE *file2) {
-	if(cap->left == NULL) {
-		//printf("%c", cap->litera);
-		fprintf(file2, "%c", cap->litera);
-		//fprintf(file2, "%d ", cap->litera);
-		return NULL;
-	}
-	//printf("%d %d\n", indice, cap->left->index);
-	if(cap->left->index == indice)
-		return cap->left;
-	else if(cap->right->index == indice)
-		return cap->right;
-}
-
 
 int main(int argc, char *argv[])
 {
@@ -473,34 +455,39 @@ int main(int argc, char *argv[])
 			text[lung_text] = ch;
 			lung_text++;
 		}
+		//n = n-1;
+		//printf("%d\n\n\n\n", n-1);
 		text[lung_text] = '\0';
+		/* for(i = 0; i < lung_text; i++)
+			printf("%d ", text[i]); */
 
-		int k;
-		sir[0].probabilitate = 1.0/lung_text;
-		sir[0].litera = text[0];
-		lungime = 1;
-		for(i = 1; i < lung_text; i++) {
-			k = 0;
-			for(j = 0 ; j < lungime; j++) {
-				if(sir[j].litera == text[i]) {
-					k = 1;
-					sir[j].probabilitate = sir[j].probabilitate + 1.0/lung_text;
-					break;
+			int k;
+		 	//int n = strlen(text);
+		 	//printf("%s", text);
+			sir[0].probabilitate = 1.0/lung_text;
+			sir[0].litera = text[0];
+			lungime = 1;
+			for(i = 1; i < lung_text; i++) {
+				k = 0;
+				for(j = 0 ; j < lungime; j++) {
+					if(sir[j].litera == text[i]) {
+						k = 1;
+						sir[j].probabilitate = sir[j].probabilitate + 1.0/lung_text;
+						break;
+					}
+				}
+				if(k == 0) {
+					sir[lungime].probabilitate = 1.0/lung_text;
+					sir[lungime].litera = text[i];
+					lungime = lungime + 1;
 				}
 			}
-			if(k == 0) {
-				sir[lungime].probabilitate = 1.0/lung_text;
-				sir[lungime].litera = text[i];
-				lungime = lungime + 1;
-			}
-		}
-			
 		//frecventa(text, sir, &lungime); // pune in sir literele distincte si frecventa lor in text
 		bubblesort(sir, lungime); // sorteaza sirul
+		//printf("%d lungime\n", lungime);
 
 		for(i = 0; i < lungime; i++)
 			cap = adauga_coada(cap, sir[i].litera, sir[i].probabilitate); // adauga sirul in coada
-		//printare_arbore_coada(cap);
 		//formez arborele
 		 while(cap->next != NULL) {
 			nod *aux1 = cap, *aux2 = cap->next;
@@ -508,7 +495,6 @@ int main(int argc, char *argv[])
 			cap = sterge_coada(cap);
 			cap = adauga_coada_crescator(cap, aux1, aux2);
 		}
-	
 
 		cap->index = 0;
 		cap->nr_biti = 0;
@@ -519,7 +505,6 @@ int main(int argc, char *argv[])
 		for(i = 0; i < lungime; i++) // pentru fiecare litera distincta din sir se completeaza nr_biti + codul
 			completeaza(cap, &sir[i]);
 		niveluri(cap); // adauga pozitia nodurilor in vector
-		//printare_arbore_coada(cap);
 		//printare_arbore_coada(cap);
 
 		uint32_t n = lung_text;
@@ -535,6 +520,9 @@ int main(int argc, char *argv[])
 			adaugare_huffman(cap, &huffman[i], i);
 		for(i = 0; i < nr_noduri; i++)
 			fwrite(&huffman[i], sizeof(TagHuffmanNode), 1, file2);
+		//print_vector_huffman(huffman, nr_noduri);
+		//for(i = 0; i < lungime; i++)
+		//	printf("%c %d %d\n", sir[i].litera, sir[i].cod, sir[i].nr_biti);
 
 		int c = 0;
 		int biti = 0;
@@ -569,11 +557,10 @@ int main(int argc, char *argv[])
 			fwrite(&c, sizeof(unsigned char), 1, file2);
 		}
 
-		for(i = 0; i < n; i++) {
-		//	printf("%d ", text[i]);
+		/*for(i = 0; i < n; i++) {
+			printf("%d ", text[i]);
 		}
-		//printf("\n%d\n", n);
-
+		printf("\n%d\n", n);*/
 	}
 
 	else if(strcmp(argv[1], "-d") == 0) {
@@ -598,9 +585,10 @@ int main(int argc, char *argv[])
 		vector = malloc(1000 * sizeof(unsigned char));
 		unsigned char c;
 		int k = 0;
-		while(fread(&vector[k], sizeof(unsigned char), 1, file1)) {
-			if(k!=0 && k%1000 ==0)
-				vector = realloc(vector, 2 * k * sizeof(unsigned char));
+		while(fread(&c, sizeof(unsigned char), 1, file1) == 1) {
+			if(k != 0 && k%100 == 0)
+				vector = realloc(vector, 2 * k);
+			vector[k] = c;
 			k++;
 		}
 		
@@ -621,41 +609,28 @@ int main(int argc, char *argv[])
 			adaugare(&aux, huffman[i].value, huffman[i].left, huffman[i].right);
 		}
 		pune_index(cap);
-		//afisare_arbore(cap);
 
 		arbore *auxiliar = cap;
 		unsigned char v[8];
 		int lungime = 0;
-		int l;
-
-
-		i = 0;
-		while(lungime < n) {
-		//for(i = 0; i < k; i++) {
+		for(i = 0; i < k; i++) {
 			for(j = 7; j >= 0; j--) {
 				v[7-j] = 1<<j & vector[i];
 				if(v[7-j])
 					v[7-j] = 1;
 				else v[7-j] = 0;
 			}
-			//	for(j = 0; j < 8; j++)
-			//		printf("%d",v[j]);
-			for(l = 0; l < 8; l++) {
-					auxiliar = cauta_index(auxiliar, v[l], file2);
+			for(j = 0; j < 8; j++) {
+					auxiliar = cauta_index(auxiliar, v[j], file2);
 					if(auxiliar == NULL) {
 						auxiliar = cap;
-						l--;
+						j = j-1;
 						lungime++;
 						if(lungime == n)
 							break;
 					}
 			}
-			i++;
 		}
-	
-		//printf("%d", lungime);
 	}
-	fclose(file1);
-	fclose(file2);
 	return 0;
 }
