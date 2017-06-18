@@ -45,7 +45,7 @@ typedef struct arbore {
 //frecventa literelor in text
 void frecventa(unsigned char *text, frecventa_aparitiei sir[], int *lungime) {
  	int i, j, k;
- 	int n = strlen(text);
+ 	int n = strlen((char *) text);
  	//printf("%s", text);
 	sir[0].probabilitate = 1.0/n;
 	sir[0].litera = text[0];
@@ -392,6 +392,8 @@ arbore *cauta_index(arbore *cap, unsigned char indice, FILE *file2) {
 		return cap->left;
 	else if(cap->right->index == indice)
 		return cap->right;
+
+	return NULL;
 }
 
 arbore *initializare_arbore(arbore *cap) {
@@ -401,15 +403,15 @@ arbore *initializare_arbore(arbore *cap) {
 	return cap;
 }
 
-void *cauta(arbore **aux, arbore *cap, int i) {
+void cauta(arbore **aux, arbore *cap, int i) {
 	if(cap->pus_in_vector == i) {
 		(*aux) = cap;
 		return;
 	}
 	else if(cap->left != NULL) {
-			cauta(&(*aux), cap->left, i);
-			cauta(&(*aux), cap->right, i);
-		}
+		cauta(&(*aux), cap->left, i);
+		cauta(&(*aux), cap->right, i);
+	}
 }
 
 void adaugare(arbore **cap, unsigned char value, int16_t left, int16_t right) {
@@ -443,7 +445,7 @@ int main(int argc, char *argv[])
 		file1 = fopen(argv[2], "r");
 		file2 = fopen(argv[3], "wb");
 		int i, j, lungime;
-		nod *cap = NULL, *nou;
+		nod *cap = NULL;
 		frecventa_aparitiei *sir;
 		sir = malloc(256 * sizeof(frecventa_aparitiei));
 		unsigned char *text; //textul citit din fisier

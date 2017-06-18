@@ -1,6 +1,6 @@
 # Text-Compression
 
-Text Compression with Huffman Coding
+Text Compression using Huffman Coding
 
 To compile the program -> make
 

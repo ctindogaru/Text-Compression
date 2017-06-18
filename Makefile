@@ -1,4 +1,5 @@
 build:
-	gcc huffman.c -o huffman
+	gcc -Wall huffman.c -o huffman
+
 clean:
-	rm -rf huffman
+	rm -f huffman
